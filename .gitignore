@@ -1,6 +1,10 @@
 .github
 
-# python files
-*.pyc
-__pycache__/
-.venv/
+# nodes files
+node_modules/
+
+# logs
+logs/
+
+# environment variables
+.env
