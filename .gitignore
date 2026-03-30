@@ -1,0 +1,6 @@
+.github
+
+# python files
+*.pyc
+__pycache__/
+.venv/
