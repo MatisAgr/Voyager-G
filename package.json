@@ -20,8 +20,11 @@
   "dependencies": {
     "@google/genai": "^1.47.0",
     "dotenv": "^17.3.1",
+    "express": "^5.2.1",
     "minecraft-data": "^3.109.0",
     "mineflayer": "^4.36.0",
-    "mineflayer-pathfinder": "^2.4.5"
+    "mineflayer-pathfinder": "^2.4.5",
+    "mineflayer-web-inventory": "^1.8.5",
+    "socket.io": "^4.8.3"
   }
 }
