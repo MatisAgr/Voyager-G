@@ -49,7 +49,8 @@ Ces commandes Minecraft permettent de mieux observer et deboguer le bot sans per
 /difficulty easy
 ```
 
-> **Note :** Sans `/op Voyager-G`, le bot ne peut pas executer ses commandes `/scoreboard` et la
+> [!NOTE]
+> Sans `/op Voyager-G`, le bot ne peut pas executer ses commandes `/scoreboard` et la
 > barre laterale Health/Food n'apparaitra pas.
 
 ---
@@ -269,8 +270,8 @@ Deux modeles LLM independants configurables dans `.env` :
 
 | Variable               | Usage                                        | Recommandation           |
 | ---------------------- | -------------------------------------------- | ------------------------ |
-| `GCP_MODEL`            | Generation de code (action agent, phase 1+2) | `gemini-3.1-pro-preview` |
-| `GCP_MODEL_CURRICULUM` | Choix du prochain objectif (texte simple)    | `gemini-2.0-flash-lite`  |
+| `GCP_MODEL`            | Generation de code (action agent, phase 1+2) | `gemini-3.1-flash-lite-preview` |
+| `GCP_MODEL_CURRICULUM` | Choix du prochain objectif (texte simple)    | `gemini-3.1-flash-lite-preview`  |
 
 Separer les modeles evite de consommer des tokens pro pour une tache de planning qui ne necessite pas de generation de code.
 
