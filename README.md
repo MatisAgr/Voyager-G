@@ -1,3 +1,5 @@
+<img width="3172" height="1061" alt="Gemini_Generated_Image_qwld3xqwld3xqwld" src="https://github.com/user-attachments/assets/211c9cb7-04d8-4694-af0f-19c5787f101c" />
+
 # Voyager-G
 
 Agent Minecraft autonome inspire du papier **Voyager** (Wang et al., 2023), construit avec **Node.js**, **Mineflayer** et **Google Gemini** (Vertex AI).
