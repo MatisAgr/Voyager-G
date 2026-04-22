@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voyager-G Dashboard</title>
+
+  <!-- Tailwind Play CDN with custom design tokens -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: '#1a1a1a',
+            frame:   '#2d2d2d',
+            accent:  '#ff9800',
+            muted:   '#666666',
+          },
+          fontFamily: {
+            sans: ["'Segoe UI'", 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Minimal CSS for things Tailwind cannot express statically (animations,
+       pseudo-elements, image-rendering, and dynamically injected elements) -->
+  <link rel="stylesheet" href="style.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body class="bg-[#0f0f0f] text-[#d0d0d0] font-sans overflow-hidden h-screen flex flex-col">
+
+  <!--  Header  -->
+  <header class="shrink-0 flex flex-col px-5 bg-surface border-b border-frame">
+    <!-- Top row: title + primary stats -->
+    <div class="h-16 flex items-center justify-between">
+      <h1 class="text-sm font-semibold text-accent tracking-[0.5px]">
+        Voyager-G &mdash; Minecraft Tech Tree (Real-Time)
+      </h1>
+      <div class="flex gap-7">
+        <div class="flex flex-col items-center">
+          <span class="text-[26px] font-bold text-accent leading-none" id="stat-prompts">0</span>
+          <span class="text-[10px] uppercase text-muted mt-0.5 tracking-[0.5px]">Code Gen Prompts</span>
+        </div>
+        <div class="flex flex-col items-center">
+          <span class="text-[26px] font-bold text-accent leading-none" id="stat-items">0</span>
+          <span class="text-[10px] uppercase text-muted mt-0.5 tracking-[0.5px]">Distinct Items</span>
+        </div>
+        <div class="flex flex-col items-center">
+          <span class="text-[26px] font-bold text-accent leading-none" id="stat-skills">0</span>
+          <span class="text-[10px] uppercase text-muted mt-0.5 tracking-[0.5px]">Skills Learned</span>
+        </div>
+        <div class="flex flex-col items-center">
+          <span class="text-lg font-bold text-accent leading-none tabular-nums" id="stat-time">00:00:00</span>
+          <span class="text-[10px] uppercase text-muted mt-0.5 tracking-[0.5px]">Session Time</span>
+        </div>
+      </div>
+    </div>
+    <!-- Secondary row: session selector + detailed counters -->
+    <div class="flex justify-between items-center gap-6 pb-2">
+      <div class="flex items-center gap-2">
+        <span class="text-[10px] uppercase text-muted tracking-[0.5px]">Session:</span>
+        <select id="session-selector"
+                class="bg-frame text-[#d0d0d0] text-xs border border-[#444] rounded px-2 py-0.5
+                       focus:outline-none focus:border-accent cursor-pointer">
+          <option value="live" selected>Live</option>
+        </select>
+      </div>
+      <div class="flex gap-6">
+        <div class="flex items-center gap-1.5">
+          <span class="text-[10px] uppercase text-muted tracking-[0.5px]">Agent Calls:</span>
+          <span class="text-[13px] font-semibold text-[#d0d0d0] tabular-nums" id="stat-agent">0</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-[10px] uppercase text-muted tracking-[0.5px]">Curriculum Calls:</span>
+          <span class="text-[13px] font-semibold text-[#d0d0d0] tabular-nums" id="stat-curriculum">0</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-[10px] uppercase text-muted tracking-[0.5px]">Used Learned Skills:</span>
+          <span class="text-[13px] font-semibold text-[#d0d0d0] tabular-nums" id="stat-used">0</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!--  Main 2-column area (fills space between header and items bar)  -->
+  <div class="flex flex-1 min-h-0 overflow-hidden">
+
+    <!-- Left: ECharts line chart + timeline strip -->
+    <div class="flex flex-col flex-1 min-w-0 border-r border-frame">
+      <!-- Chart toolbar: X-axis selector -->
+      <div class="shrink-0 flex justify-between items-center px-3 py-1.5 border-b border-frame">
+        <span class="text-[11px] uppercase tracking-[0.8px] text-muted">Tech Tree</span>
+        <div class="flex gap-1 text-[11px]">
+          <span class="text-muted mr-1 self-center">X axis:</span>
+          <button id="btn-xaxis-codegen" onclick="setXAxisMode('codeGen')"
+                  class="px-2 py-0.5 rounded border border-accent bg-accent/20 text-accent
+                         hover:bg-accent/30 transition-colors">
+            Code Gen
+          </button>
+          <button id="btn-xaxis-agent" onclick="setXAxisMode('agent')"
+                  class="px-2 py-0.5 rounded border border-[#444] text-muted
+                         hover:border-accent hover:text-[#d0d0d0] transition-colors">
+            Agent Calls
+          </button>
+        </div>
+      </div>
+      <div id="chart" class="flex-1 min-h-0"></div>
+      <div id="timeline"
+           class="h-8 shrink-0 relative border-t border-frame bg-[#111] overflow-hidden"></div>
+    </div>
+
+    <!-- Right: bird's-eye map + skills table -->
+    <div class="w-80 shrink-0 flex flex-col overflow-hidden">
+
+      <!-- Map section -->
+      <div class="shrink-0 border-b border-frame">
+        <div class="flex justify-between items-center px-3 py-2 border-b border-frame">
+          <span class="text-[11px] uppercase tracking-[0.8px] text-muted">Explored Area</span>
+          <span class="text-xs font-bold text-accent" id="map-info">0 chunks</span>
+        </div>
+        <canvas id="map" width="640" height="440"
+                class="block w-full h-[220px] cursor-crosshair"></canvas>
+      </div>
+
+      <!-- Skills section -->
+      <div class="flex flex-col flex-1 overflow-hidden">
+        <div class="shrink-0 flex justify-between items-center px-3 py-2 border-b border-frame">
+          <span class="text-[11px] uppercase tracking-[0.8px] text-muted">Skill Library</span>
+          <span class="text-xs font-bold text-accent" id="skill-count">0 skills</span>
+        </div>
+        <div class="flex-1 overflow-y-auto table-wrap">
+          <table class="w-full border-collapse text-xs">
+            <thead>
+              <tr>
+                <th onclick="sortSkills('name')"
+                    class="sticky top-0 bg-surface text-muted text-[10px] uppercase
+                           tracking-[0.5px] px-2.5 py-1.5 cursor-pointer border-b
+                           border-frame text-left select-none hover:text-[#d0d0d0]
+                           transition-colors">
+                  Name <span class="text-accent ml-0.5" id="si-name">↕</span>
+                </th>
+                <th onclick="sortSkills('savedAt')"
+                    class="sticky top-0 bg-surface text-muted text-[10px] uppercase
+                           tracking-[0.5px] px-2.5 py-1.5 cursor-pointer border-b
+                           border-frame text-left select-none hover:text-[#d0d0d0]
+                           transition-colors whitespace-nowrap">
+                  Learned At <span class="text-accent ml-0.5" id="si-time">↕</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="skills-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!--  Items bar  -->
+  <div id="items-bar"
+       class="h-[90px] shrink-0 flex items-center gap-1.5 px-4 bg-surface
+              border-t border-frame overflow-x-auto"></div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>

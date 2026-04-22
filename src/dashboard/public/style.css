@@ -1,0 +1,50 @@
+/*
+ * style.css — Minimal overrides for properties Tailwind cannot express
+ * as static utility classes (animations, pseudo-elements, image-rendering,
+ * and classes injected dynamically by dashboard.js).
+ */
+
+/* Pixelated rendering keeps Minecraft pixel-art assets sharp */
+img, #map {
+  image-rendering: pixelated;
+}
+
+/* Thin scrollbars */
+#items-bar::-webkit-scrollbar          { height: 4px; }
+#items-bar::-webkit-scrollbar-thumb    { background: #2d2d2d; border-radius: 2px; }
+.table-wrap::-webkit-scrollbar         { width: 4px; }
+.table-wrap::-webkit-scrollbar-thumb   { background: #2d2d2d; border-radius: 2px; }
+
+/* Flash highlight on newly saved skills */
+@keyframes flash {
+  0%,100% { background: transparent; }
+  10%     { background: rgba(255, 152, 0, 0.20); }
+}
+.new-skill-flash td { animation: flash 1s ease; }
+
+/* Timeline ticks — absolutely-positioned elements built in JS */
+.t-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+.t-tick .t-line  { width: 1px; height: 8px;  background: #2d2d2d; }
+.t-tick .t-label { font-size: 9px; color: #666; white-space: nowrap; margin-top: 1px; }
+.t-tick.milestone .t-line  { background: #ff9800; height: 12px; }
+.t-tick.milestone .t-label { color: #ff9800; font-weight: 600; }
+
+/* Item chips — built dynamically in renderItemsBar() */
+.item-chip       { display: flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0; }
+.item-chip img   { width: 32px; height: 32px; }
+.item-chip span  { font-size: 9px; color: #666; max-width: 48px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Skills table rows — built dynamically in renderSkillsTable() */
+.skill-row td               { padding: 5px 10px; border-bottom: 1px solid #1d1d1d; }
+.skill-row td:first-child   { color: #ff9800; font-family: monospace; }
+.skill-row td:last-child    { color: #666; font-size: 11px; white-space: nowrap; }
+.skill-row:nth-child(even)  { background: #161616; }
+.skill-row:hover            { background: #222; }
