@@ -19,6 +19,7 @@ Toutes les commandes ont un raccourci `npm run ...` (pas besoin de retenir les o
 | `npm run player`      | `... --player`              | Le bot ecoute le chat et repond / agit.                                 |
 | `npm run test`        | `... --test`                | Le bot utilise UNIQUEMENT les skills appris (pas d'improvisation).       |
 | `npm run clear`       | `... --clear`               | Nouvelle iteration : efface les skills, teleporte, repart de zero.       |
+| `npm run clear:player`| `... --clear --player`      | Nouvelle iteration + mode player (reset et interaction manuelle).        |
 | `npm run dev`         | `node --watch ...`          | Mode autonome avec redemarrage auto a chaque modif de code.             |
 | `npm run dashboard`   | `node tools/web.js`         | Lance le dashboard web SEUL (sans bot) pour consulter les sessions.      |
 | `npm run sessions`    | `node tools/clean-sessions` | Liste les sessions et celles qui seraient supprimees (aucune suppression).|
@@ -42,7 +43,7 @@ bot lui-meme) :
 - `difficulty` = `MC_DIFFICULTY` (defaut **peaceful** : pas de mobs hostiles -> evite les kicks de knockback) ;
 - `gamerule keepInventory true`, `doDaylightCycle false`, **`fallDamage false`** ;
 - **fire resistance + night vision infinies** a tout le monde (`@a`) ;
-- **scoreboard sante/faim** alimente en continu par RCON (l'app, pas le bot, toutes les `RCON_SCOREBOARD_MS` ms).
+- **scoreboard sante/faim** mis a jour par le bot via `bot.chat` sur chaque evenement `health` (temps reel, sans flood) — fonctionne car le bot est auto-ope au spawn.
 
 Pre-requis **une seule fois** dans `game/server.properties` (puis redemarrer le serveur) :
 
@@ -72,8 +73,8 @@ et appliquez la config a la main :
 ```
 
 > [!NOTE]
-> Sans RCON, la barre laterale Health/Food ne sera plus mise a jour automatiquement
-> (c'est l'app via RCON qui l'alimente desormais, plus le bot).
+> Sans RCON le bot ne sera pas OP et ses commandes `/scoreboard` seront ignorees par le serveur :
+> la barre laterale Health/Food n'apparaitra pas.
 
 ---
 
@@ -234,6 +235,10 @@ Voyager-G/
 ├── game/                         # Serveur Minecraft 1.20 vanilla
 │   └── ...
 │
+├── tools/
+│   ├── web.js                    # Lance le dashboard seul (sans bot) : npm run dashboard
+│   └── clean-sessions.js         # Supprime les sessions ininteressantes : npm run sessions
+│
 └── src/
     ├── index.js                  # Point d'entree, branchement des 4 modes (config via .env)
     │
@@ -276,7 +281,8 @@ Voyager-G/
     │   │   │                     # equipBestPickaxe / equipBestSword
     │   │   ├── smeltItem.js      # smeltItem(bot, mcData, inputItem, count)
     │   │   │                     # Pose un four si necessaire, choisit le carburant auto
-    │   │   ├── placeItem.js      # placeBlock / placeAndReclaim (pose + recupere)
+    │   │   ├── placeItem.js      # placeBlock / placeBlockAt (coordonnees exactes)
+    │   │   │                     # buildBox (coque sol+murs+toit) / placeAndReclaim
     │   │   └── exploreUntil.js   # exploreUntilBlock / exploreUntilEntity
     │   │                         # Se deplace jusqu'a trouver la ressource
     │   └── learned/              # Skills generes par Gemini (parametres)
@@ -301,8 +307,8 @@ Deux modeles LLM independants configurables dans `.env` :
 Separer les modeles evite de consommer des tokens pro pour une tache de planning qui ne necessite pas de generation de code.
 
 > [!NOTE]
-> Modeles disponibles selon la `GCP_LOCATION` (verifie sur le projet `memoire-agent-minecraft`) :
-> `gemini-3.1-flash-lite` / `gemini-2.5-flash` / `gemini-2.5-pro` fonctionnent partout
+> Modeles disponibles sur le projet `memoire-agent-minecraft` (verifie en live) :
+> `gemini-2.5-flash-lite` / `gemini-2.5-flash` / `gemini-2.5-pro` fonctionnent dans **toutes les locations**
 > (europe-west9, us-central1, global). `gemini-3.1-flash-lite` n'existe **qu'en `global`**.
 
 ---
@@ -318,7 +324,7 @@ Separer les modeles evite de consommer des tokens pro pour une tache de planning
 | `src/brain/gemini.js`          | Client Vertex AI avec ADC. Supporte l'override de modele par appel.                             |
 | `src/brain/prompts.js`         | Tous les templates de prompts. Inclut les exemples d'API primitives pour le LLM.                |
 | `src/brain/actionAgent.js`     | Phase 1: selection skill/code (top-K). Phase 2: execution + self-correction (N retries).        |
-| `src/brain/criticAgent.js`     | Self-verification: compare l'etat avant/apres pour valider (ou rejeter) une tache.              |
+| `src/brain/criticAgent.js`     | Self-verification: juge via delta d'inventaire calcule en code + delai settle (ne bloque pas la sauvegarde). |
 | `src/brain/freezeMode.js`      | Bot idle. Ecoute "unfreeze" dans le chat pour demarrer l'entrainement.                          |
 | `src/brain/playerMode.js`      | Mode interactif. Chaining multi-etapes avec reuse des skills appris.                            |
 | `src/curriculum/curriculum.js` | Propose le prochain advancement a poursuivre (arbre complet Java 1.20).                         |
