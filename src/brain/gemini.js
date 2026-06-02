@@ -6,9 +6,9 @@
 const { GoogleGenAI } = require("@google/genai");
 const logger = require("../utils/logger");
 
-const GCP_PROJECT        = process.env.GCP_PROJECT        || "memoire-agent-minecraft";
-const GCP_LOCATION       = process.env.GCP_LOCATION       || "us-central1";
-const GCP_MODEL          = process.env.GCP_MODEL          || "gemini-2.0-flash-lite";
+const GCP_PROJECT        = process.env.GCP_PROJECT        || "agent-minecraft";
+const GCP_LOCATION       = process.env.GCP_LOCATION       || "global";
+const GCP_MODEL          = process.env.GCP_MODEL          || "gemini-3.1-flash-lite";
 const GCP_TEMPERATURE    = parseFloat(process.env.GCP_TEMPERATURE)    || 0.7;
 const GCP_MAX_OUTPUT_TOKENS = parseInt(process.env.GCP_MAX_OUTPUT_TOKENS, 10) || 4096;
 

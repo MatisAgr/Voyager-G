@@ -6,6 +6,7 @@
 const { chat } = require("./gemini");
 const { skillSelectPrompt, actionPrompt, correctionPrompt } = require("./prompts");
 const { loadSkill, saveSkill } = require("../skills/library");
+const { retrieveRelevantSkills } = require("../skills/retrieval");
 const { goals: pathfinderGoals } = require("mineflayer-pathfinder");
 const logger = require("../utils/logger");
 const { sleep } = require("../utils/helpers");
@@ -92,9 +93,11 @@ async function executeCode(code, bot, mcData, params = {}) {
 async function executeTask(bot, mcData, gameState, task, availableSkills = []) {
   const maxRetries = ACTION_MAX_RETRIES;
 
-  //  Phase 1: Ask Gemini which skill to use, or get new code 
+  //  Phase 1: Ask Gemini which skill to use, or get new code
   logger.info("ActionAgent", `Phase 1 - selecting skill for task: "${task}"`);
-  const selectionPrompt = skillSelectPrompt(gameState, task, availableSkills);
+  // Ne montrer que les skills les plus pertinents pour garder le prompt court.
+  const relevantSkills = retrieveRelevantSkills(task, availableSkills);
+  const selectionPrompt = skillSelectPrompt(gameState, task, relevantSkills);
   let selectionRaw;
   try {
     selectionRaw = await chat(selectionPrompt);
@@ -185,7 +188,7 @@ async function executeTask(bot, mcData, gameState, task, availableSkills = []) {
       const result = await executeCode(code, bot, mcData, {});
       logger.info("ActionAgent", `Task "${task}" succeeded with new code: ${result}`);
 
-      // Save only if Gemini proposed a task name (no hardcoded numbers)
+      // Sauvegarder des que le code reussit (le critic ne sert qu'au curriculum).
       let saved = false;
       if (taskName) {
         saveSkill(taskName, code, result);

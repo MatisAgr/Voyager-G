@@ -3,6 +3,33 @@
  * Each function builds one prompt string from runtime context.
  */
 
+// Limite le nombre d'items d'historique injectes dans un prompt (cout tokens borne).
+const CURRICULUM_HISTORY_LIMIT = parseInt(process.env.CURRICULUM_HISTORY_LIMIT, 10) || 20;
+
+/** Liste en puces, ne garde que les `limit` plus recents. */
+function capRecent(list, limit = CURRICULUM_HISTORY_LIMIT) {
+  if (list.length <= limit) {
+    return list.map((t) => `  - ${t}`).join("\n");
+  }
+  const recent = list.slice(-limit);
+  return `  (showing last ${limit} of ${list.length})\n` + recent.map((t) => `  - ${t}`).join("\n");
+}
+
+/**
+ * Preambule court pour la phase 1 (choix skill vs nouveau code).
+ * Evite le gros system prompt de generation de code : on economise des tokens a chaque cycle.
+ */
+function selectionPreamble() {
+  return `You are the planner for an autonomous Minecraft bot (Mineflayer).
+Decide whether an EXISTING learned skill can accomplish the task, or whether new
+code must be written. You do NOT write any code in this step.
+
+NAMING: each skill targets ONE specific item/block and is named accordingly
+(e.g. 'mine_oak_log', 'craft_stone_pickaxe'). A skill matches a task ONLY if it
+targets the EXACT same item/block. Never use generic names ('mine_block') or
+numbers in a taskName.`;
+}
+
 /** Returns the global system prompt. */
 function systemPrompt() {
   return `You are an autonomous Minecraft bot powered by the Mineflayer API (Node.js).
@@ -167,7 +194,7 @@ function skillSelectPrompt(gameState, task, skillNames = []) {
     ? `\nLEARNED SKILLS (proven, reuse whenever one fits -- reference by exact name):\n${skillNames.map((s) => `  - ${s}`).join("\n")}\n`
     : "\nNo skills learned yet.\n";
 
-  return `${systemPrompt()}
+  return `${selectionPreamble()}
 
 CURRENT GAME STATE:
 ${gameState}
@@ -255,13 +282,13 @@ Write corrected JavaScript code using the "action" function format.`;
  * the SINGLE most logical next step toward that goal.
  *
  */
-function curriculumPrompt(gameState, completedTasks = [], failedTasks = [], critique = "") {
-  const completedSection = completedTasks.length > 0
-    ? `\nCOMPLETED TASKS:\n${completedTasks.map((t) => `  - ${t}`).join("\n")}\n`
-    : "\nNo tasks completed yet.\n";
+function curriculumPrompt(gameState, learnedSkills = [], failedTasks = [], critique = "") {
+  const learnedSection = learnedSkills.length > 0
+    ? `\nALREADY LEARNED SKILLS (capabilities the bot has proven -- a signal of how far it has progressed):\n${capRecent(learnedSkills)}\n`
+    : "\nNo skills learned yet (the bot is at the very beginning).\n";
 
   const failedSection = failedTasks.length > 0
-    ? `\nFAILED TASKS (do NOT propose these again directly -- the bot could not complete them):\n${failedTasks.map((t) => `  - ${t}`).join("\n")}\n`
+    ? `\nFAILED TASKS (do NOT propose these again directly -- the bot could not complete them):\n${capRecent(failedTasks)}\n`
     : "";
 
   const critiqueSection = critique
@@ -317,8 +344,10 @@ The full advancement tree (in rough unlock order) is:
   minecraft:husbandry/complete_catalogue - A Complete Catalogue (tame all cats)
   minecraft:husbandry/obtain_netherite_hoe - Serious Dedication
 
-Based on the current game state and completed tasks, propose the SINGLE next
-concrete task the agent should do to make progress toward completing all advancements.
+Based on the current game state (inventory, position) and the skills already
+learned, propose the SINGLE next concrete task the agent should do to make
+progress toward completing all advancements. Infer what is already done from the
+inventory and learned skills -- there is no separate list of completed tasks.
 
 TASK SELECTION RULES:
 - Pick the earliest uncompleted advancement that is achievable given current resources.
@@ -342,7 +371,7 @@ Respond with ONLY the task description (one sentence, no extra text).
 
 CURRENT GAME STATE:
 ${gameState}
-${completedSection}${failedSection}${critiqueSection}
+${learnedSection}${failedSection}${critiqueSection}
 What is the single next task to advance toward completing all Minecraft advancements?`;
 }
 

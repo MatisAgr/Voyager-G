@@ -9,6 +9,7 @@ const { playerChatPrompt } = require("./prompts");
 const { executeCode, extractCode } = require("./actionAgent");
 const { observe } = require("../observer");
 const { listSkills, loadSkill, saveSkill } = require("../skills/library");
+const { retrieveRelevantSkills } = require("../skills/retrieval");
 const { truncate } = require("../utils/helpers");
 
 // Rolling short-term history.
@@ -88,8 +89,8 @@ async function handlePlayerMessage(bot, mcData, playerName, message) {
       // Re-observe the game state before each step (inventory/position may have changed)
       const gameState = observe(bot);
 
-      // Load currently available skills so Gemini can reference them
-      const skillNames = listSkills();
+      // Ne charger que les skills pertinents (prompt plus court).
+      const skillNames = retrieveRelevantSkills(originalRequest, listSkills());
 
       // Build the prompt. On follow-up steps, prepend "Continue the task"
       // so Gemini knows this is a continuation, not a new request.
