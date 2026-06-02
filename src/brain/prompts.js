@@ -95,9 +95,22 @@ SMELTING PRIMITIVE - use this to smelt ores or food:
   // Automatically selects the best available fuel (coal > charcoal > wood).
 
 BLOCK PLACEMENT PRIMITIVE - use this to place blocks in the world:
-  const { placeBlock, placeAndReclaim } = require("../skills/primitives/placeItem");
+  const { placeBlock, placeBlockAt, placeAndReclaim } = require("../skills/primitives/placeItem");
   await placeBlock(bot, mcData, "furnace")          // places a furnace next to the bot
   await placeBlock(bot, mcData, "crafting_table")   // places a crafting table
+
+BUILDING (walls, houses, towers):
+  const { buildBox, placeBlockAt } = require("../skills/primitives/placeItem");
+  // For a HOUSE / HUT / SHED, use buildBox: it builds floor + 4 walls (with a door) + roof,
+  // CHECKS you have enough blocks first, and returns an honest "X placed, Y failed" count:
+  await buildBox(bot, mcData, "oak_planks", { width: 4, depth: 4, height: 2 })
+  // For a custom shape, place one block at EXACT coordinates (navigates + verifies):
+  await placeBlockAt(bot, mcData, "oak_planks", x, y, z)
+
+  // NEVER call bot.placeBlock(...) directly -- it throws "Event blockUpdate did not fire".
+  // HONESTY: NEVER return a success message unless blocks were ACTUALLY placed. If buildBox
+  // throws "Not enough oak_planks: need N, have M", do NOT pretend the house is built --
+  // say you need more blocks. Build CONNECTED structures, from the ground up.
   // placeAndReclaim places a block, runs a callback with the Block object, then digs it back up.
   // The callback receives the actual Block object -- pass it to bot.recipesFor() and bot.craft():
   await placeAndReclaim(bot, mcData, "crafting_table", async (tableBlock) => {

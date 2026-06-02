@@ -14,6 +14,7 @@ const { createBot } = require("./bot/createBot");
 const { registerEvents } = require("./bot/events");
 const { ensureOp } = require("./bot/rcon");
 const { observe } = require("./observer");
+const { inventoryCounts } = require("./observer/inventory");
 const { executeTask } = require("./brain/actionAgent");
 const { getUsedLearnedTaskCount } = require("./brain/actionAgent");
 const { verifyCritic } = require("./brain/criticAgent");
@@ -61,6 +62,8 @@ const failedTasks = [];
 // Force exploration after too many failures.
 let consecutiveFailures = 0;
 const MAX_CONSECUTIVE_FAILURES = parseInt(process.env.MAX_CONSECUTIVE_FAILURES, 10) || 5;
+// Delai avant le jugement du critic, pour laisser ramasser les objets tombes.
+const CRITIC_SETTLE_MS = parseInt(process.env.CRITIC_SETTLE_MS, 10) || 1000;
 
 // Feedback from critic after a failed task.
 let lastCritique = "";
@@ -104,6 +107,7 @@ async function mainLoop(bot, mcData, generation) {
 
       // Step 3: Capture state BEFORE execution (for critic comparison)
       const stateBefore = gameState;
+      const invBefore = inventoryCounts(bot);
 
       // Step 4: Execute the task via the action agent
       const availableSkills = listSkills();
@@ -112,12 +116,17 @@ async function mainLoop(bot, mcData, generation) {
       // Bail if a reconnect happened during execution
       if (generation !== currentGeneration) break;
 
+      // Laisser le temps aux objets tombes d'etre ramasses avant de juger.
+      await sleep(CRITIC_SETTLE_MS);
+      if (generation !== currentGeneration) break;
+
       // Verify success from before/after state.
       const stateAfter = observe(bot);
+      const invAfter = inventoryCounts(bot);
       let verified = result.success;
 
       if (result.success) {
-        const verdict = await verifyCritic(task, stateBefore, stateAfter, result.result);
+        const verdict = await verifyCritic(task, stateBefore, stateAfter, result.result, invBefore, invAfter);
         verified = verdict.success;
 
         if (!verified) {
@@ -127,7 +136,6 @@ async function mainLoop(bot, mcData, generation) {
       }
 
       // Update history.
-      // TODO:
       // Le skill est deja sauvegarde sur disque des que le code reussit :
       // on l'affiche dans le dashboard (dashboard = disque), que le critic valide ou non.
       if (result.saved) {

@@ -24,4 +24,13 @@ function getHeldItem(bot) {
   return held ? `Held item: ${held.name}` : "Held item: none";
 }
 
-module.exports = { getInventorySummary, getHeldItem };
+/** Compte l'inventaire en { nom: quantite } (pour calculer un delta fiable). */
+function inventoryCounts(bot) {
+  const counts = {};
+  for (const item of bot.inventory.items()) {
+    counts[item.name] = (counts[item.name] || 0) + item.count;
+  }
+  return counts;
+}
+
+module.exports = { getInventorySummary, getHeldItem, inventoryCounts };
