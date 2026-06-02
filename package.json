@@ -9,6 +9,7 @@
     "player": "node src/index.js --player",
     "test": "node src/index.js --test",
     "clear": "node src/index.js --clear",
+    "clear:player": "node src/index.js --clear --player",
     "dev": "node --watch src/index.js",
     "dashboard": "node tools/web.js",
     "sessions": "node tools/clean-sessions.js",
