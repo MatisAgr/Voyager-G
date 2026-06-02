@@ -3,14 +3,16 @@
  * Starts the bot in autonomous mode, player mode, test mode, or freeze mode.
 */
 
+const path = require("path");
+process.chdir(path.resolve(__dirname, ".."));
 require("dotenv").config();
 
 const fs            = require("fs");
-const path          = require("path");
 const minecraftData = require("minecraft-data");
 const { Movements } = require("mineflayer-pathfinder");
 const { createBot } = require("./bot/createBot");
 const { registerEvents } = require("./bot/events");
+const { ensureOp } = require("./bot/rcon");
 const { observe } = require("./observer");
 const { executeTask } = require("./brain/actionAgent");
 const { getUsedLearnedTaskCount } = require("./brain/actionAgent");
@@ -20,6 +22,7 @@ const { startPlayerMode } = require("./brain/playerMode");
 const { startTestMode } = require("./brain/testMode");
 const { startFreezeMode } = require("./brain/freezeMode");
 const { saveSkill, listSkills } = require("./skills/library");
+const { resolveRun } = require("./state/run");
 const { startDashboard, emitDataPoint, addSkill, addPosition } = require("./dashboard/server");
 const inventoryViewer = require("mineflayer-web-inventory");
 const logger = require("./utils/logger");
@@ -48,9 +51,13 @@ if (CLEAR_MODE) {
   }
 }
 
-// Task history used by the curriculum.
-const completedTasks = [];
+const RUN = resolveRun({ fresh: CLEAR_MODE });
+logger.info("Main", `Run iteration ${RUN.iteration} -> Minecraft username "${RUN.username}".`);
+logger.info("Main", `Reminder: grant OP to this username on the server (/op ${RUN.username}) for scoreboard commands.`);
+
+// Taches a ne pas reproposer (en memoire, par run). La progression vient de l'etat du jeu.
 const failedTasks = [];
+
 // Force exploration after too many failures.
 let consecutiveFailures = 0;
 const MAX_CONSECUTIVE_FAILURES = parseInt(process.env.MAX_CONSECUTIVE_FAILURES, 10) || 5;
@@ -85,9 +92,10 @@ async function mainLoop(bot, mcData, generation) {
         logger.warn("Main", `Stuck detected (${consecutiveFailures} consecutive failures) - forcing exploration.`);
         consecutiveFailures = 0;  // Reset after forced exploration
       } else {
-        // Step 2: Ask the curriculum for the next task
-        const availableSkills = listSkills();
-        task = await proposeNextTask(gameState, completedTasks, failedTasks, lastCritique);
+        // Step 2 : demander la prochaine tache. Les skills appris + l'inventaire
+        // servent de signal de progression (plus de completedTasks[]).
+        const learnedSkills = listSkills();
+        task = await proposeNextTask(gameState, learnedSkills, failedTasks, lastCritique);
         lastCritique = "";  // Clear after consumption
       }
 
@@ -119,13 +127,18 @@ async function mainLoop(bot, mcData, generation) {
       }
 
       // Update history.
+      // TODO:
+      // Le skill est deja sauvegarde sur disque des que le code reussit :
+      // on l'affiche dans le dashboard (dashboard = disque), que le critic valide ou non.
+      if (result.saved) {
+        logger.info("Main", `New skill learned: "${result.taskName}"`);
+        addSkill(result.taskName);
+      }
+
+      // Le critic ne pilote que le curriculum (streak de succes + taches a eviter).
       if (verified) {
-        completedTasks.push(task);
         consecutiveFailures = 0;  // Reset on success
-        if (result.saved) {
-          logger.info("Main", `New skill learned: "${result.taskName}"`);
-          addSkill(result.taskName);
-        } else {
+        if (!result.saved) {
           logger.info("Main", `Task completed (used existing skill): "${task}"`);
         }
       } else {
@@ -170,7 +183,7 @@ function startAgent() {
     startDashboard();
   }
 
-  const bot = createBot();
+  const bot = createBot(RUN.username);
   registerEvents(bot);
 
   // Local inventory viewer.
@@ -188,6 +201,9 @@ function startAgent() {
 
   await bot.waitForChunksToLoad();
   logger.info("Main", "Chunks loaded - initialising agent...");
+
+  // Op le bot via RCON (avant --clear qui en a besoin). Sans effet si RCON desactive.
+  await ensureOp(RUN.username);
 
   // --clear: teleport to a random location before starting training.
   if (CLEAR_MODE && generation === 1) {
