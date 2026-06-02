@@ -19,6 +19,9 @@ sessions
 # Learned skills (generated at runtime)
 src/skills/learned/
 
+# Agent state (generated at runtime)
+/state/
+
 # OS files
 Thumbs.db
 .DS_Store

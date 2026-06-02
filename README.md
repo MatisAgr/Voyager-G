@@ -8,49 +8,62 @@ Projet realise dans le cadre d'un memoire de Master sur l'evolution de l'IA dans
 
 ---
 
-## Lancement
+## Lancement (commandes npm)
 
-```bash
-# Mode autonome (boucle Voyager: observe -> planifie -> agit -> apprend)
-node src/index.js
+Toutes les commandes ont un raccourci `npm run ...` (pas besoin de retenir les options) :
 
-# Mode freeze (bot connecte mais idle - demarre l'entrainement quand un joueur dit "unfreeze" dans le chat)
-node src/index.js --freeze
-
-# Mode player (le bot ecoute le chat et repond / agit)
-node src/index.js --player
-
-# Mode test (le bot utilise UNIQUEMENT les skills appris, pas d'improvisation)
-node src/index.js --test
-```
+| Commande              | Equivalent                  | Description                                                              |
+| --------------------- | --------------------------- | ----------------------------------------------------------------------- |
+| `npm start`           | `node src/index.js`         | Mode autonome (boucle Voyager : observe -> planifie -> agit -> apprend). |
+| `npm run freeze`      | `... --freeze`              | Bot connecte mais idle ; demarre quand un joueur dit "unfreeze".        |
+| `npm run player`      | `... --player`              | Le bot ecoute le chat et repond / agit.                                 |
+| `npm run test`        | `... --test`                | Le bot utilise UNIQUEMENT les skills appris (pas d'improvisation).       |
+| `npm run clear`       | `... --clear`               | Nouvelle iteration : efface les skills, teleporte, repart de zero.       |
+| `npm run dev`         | `node --watch ...`          | Mode autonome avec redemarrage auto a chaque modif de code.             |
+| `npm run dashboard`   | `node tools/web.js`         | Lance le dashboard web SEUL (sans bot) pour consulter les sessions.      |
+| `npm run sessions`    | `node tools/clean-sessions` | Liste les sessions et celles qui seraient supprimees (aucune suppression).|
+| `npm run sessions:clean` | `... --delete`           | Supprime les sessions avec moins de 5 items distincts.                   |
 
 ---
 
 ## Configuration recommandee du serveur
 
-Ces commandes Minecraft permettent de mieux observer et deboguer le bot sans perdre de temps.
+> [!IMPORTANT]
+> Le bot rejoint sous un nom **par itération** : `<MC_USERNAME>_<n>` (ex. `Voyager-G_3`).
+> Chaque run est donc un joueur Minecraft neuf. Le nom exact est affiche dans les logs au demarrage.
+> Un nouveau run (`--clear`) incremente l'iteration et change le nom.
 
-**A effectuer une seule fois apres le demarrage du serveur :**
+### Auto-OP via RCON (recommande)
+
+Comme le nom change a chaque itération, le bot est **op automatiquement au spawn via RCON**
+(un datapack ne peut pas appeler `/op`, mais la console RCON le peut). Cela couvre n'importe quel
+nom dynamique, sans aucune action manuelle. L'app applique aussi la config recommandee
+(keepInventory, doDaylightCycle false, difficulty easy, night vision).
+
+Pre-requis **une seule fois** dans `game/server.properties` (puis redemarrer le serveur) :
 
 ```
-# Donner les droits OP au bot pour qu'il puisse envoyer ses commandes de scoreboard (sante, faim)
-/op Voyager-G
+enable-rcon=true
+rcon.password=voyager-rcon      # doit correspondre a RCON_PASSWORD dans .env
+rcon.port=25575                 # doit correspondre a RCON_PORT dans .env
+```
 
-# Activer la vision de nuit permanente pour mieux voir dans les mines et la nuit
+Pour desactiver l'auto-op : `RCON_ENABLED=false` dans `.env`.
+
+### Fallback : commandes manuelles
+
+Si RCON est desactive, opez le bot manuellement (nom visible dans les logs) et appliquez la config :
+
+```
+/op Voyager-G_<n>
 /effect give @a night_vision 99999 1
-
-# Conserver l'inventaire apres la mort pour ne pas perdre les outils acquis
 /gamerule keepInventory true
-
-# Desactiver le cycle jour/nuit pour gagner du temps de test
 /gamerule doDaylightCycle false
-
-# Garder la difficulte facile (les mobs causent moins de degats, le bot survit plus longtemps)
 /difficulty easy
 ```
 
 > [!NOTE]
-> Sans `/op Voyager-G`, le bot ne peut pas executer ses commandes `/scoreboard` et la
+> Sans OP (auto via RCON ou manuel), le bot ne peut pas executer ses commandes `/scoreboard` et la
 > barre laterale Health/Food n'apparaitra pas.
 
 ---
@@ -122,7 +135,7 @@ Nearby entities (radius 32):
 | Entites visibles (rayon 32 blocs)     | `observer/entities.js`    | Oui                                                       |
 | Sante / faim / niveau XP              | `observer/index.js`       | Oui                                                       |
 | Noms des skills deja appris           | `listSkills()`            | Oui                                                       |
-| Advancements Minecraft natifs         | aucune source             | **Non** (suivi via `completedTasks[]` en memoire session) |
+| Advancements Minecraft natifs         | aucune source             | **Non** (la progression est portee par l'etat du serveur : un nom de joueur neuf par run) |
 
 ---
 
@@ -168,7 +181,7 @@ flowchart TD
     A5 -->|Echec| A6
     A6 --> A4
     A5 -->|Succes| A7["Sauvegarder skill\ntaskName sans nombres"]
-    A4 -->|Succes| A8["completedTasks.push"]
+    A4 -->|Succes| A8["Verification critic\n(etat avant/apres)\npuis cycle suivant"]
     A7 --> A8
     A8 --> A1
 ```
@@ -213,13 +226,14 @@ Voyager-G/
 │   └── ...
 │
 └── src/
-    ├── index.js                  # Point d'entree, branchement des 4 modes
+    ├── index.js                  # Point d'entree, branchement des 4 modes (config via .env)
     │
-    ├── config/
-    │   └── settings.js           # Configuration centralisee (serveur, Gemini, observer, modes)
+    ├── state/
+    │   └── run.js                # Identite du run: username "<base>_<iteration>" + compteur d'iteration
     │
     ├── bot/
-    │   ├── createBot.js          # Factory Mineflayer + chargement pathfinder
+    │   ├── createBot.js          # Factory Mineflayer (username par iteration) + pathfinder
+    │   ├── rcon.js               # Client RCON minimal: auto-OP du bot au spawn (nom dynamique)
     │   └── events.js             # Handlers evenements (spawn, kick, death, chat)
     │
     ├── observer/
@@ -233,6 +247,7 @@ Voyager-G/
     │   ├── prompts.js            # Templates: systemPrompt, skillSelectPrompt, correctionPrompt,
     │   │                         #   curriculumPrompt, playerChatPrompt, testChatPrompt
     │   ├── actionAgent.js        # Phase 1 (selection) + Phase 2 (execution + self-correction)
+    │   ├── criticAgent.js        # Self-verification: valide la reussite via l'etat avant/apres
     │   ├── playerMode.js         # Mode --player: chaining multi-etapes avec skill reuse
     │   ├── testMode.js           # Mode --test: skills appris uniquement
     │   └── freezeMode.js         # Mode --freeze: idle total, attend 'unfreeze' dans le chat
@@ -242,6 +257,7 @@ Voyager-G/
     │
     ├── skills/
     │   ├── library.js            # CRUD fichier: saveSkill / loadSkill / listSkills
+    │   ├── retrieval.js          # Selection top-K des skills pertinents (reduction des couts tokens)
     │   ├── primitives/           # Helpers codes manuellement, importables par le code LLM
     │   │   ├── mining.js         # mineBlock(bot, mcData, blockName)
     │   │   ├── crafting.js       # craftItem(bot, mcData, itemName, count)
@@ -270,10 +286,15 @@ Deux modeles LLM independants configurables dans `.env` :
 
 | Variable               | Usage                                        | Recommandation           |
 | ---------------------- | -------------------------------------------- | ------------------------ |
-| `GCP_MODEL`            | Generation de code (action agent, phase 1+2) | `gemini-3.1-flash-lite-preview` |
-| `GCP_MODEL_CURRICULUM` | Choix du prochain objectif (texte simple)    | `gemini-3.1-flash-lite-preview`  |
+| `GCP_MODEL`            | Generation de code (action agent, phase 1+2) | `gemini-3.1-flash-lite` |
+| `GCP_MODEL_CURRICULUM` | Choix du prochain objectif (texte simple)    | `gemini-3.1-flash-lite`  |
 
 Separer les modeles evite de consommer des tokens pro pour une tache de planning qui ne necessite pas de generation de code.
+
+> [!NOTE]
+> Modeles disponibles selon la `GCP_LOCATION` (verifie sur le projet `memoire-agent-minecraft`) :
+> `gemini-3.1-flash-lite` / `gemini-2.5-flash` / `gemini-2.5-pro` fonctionnent partout
+> (europe-west9, us-central1, global). `gemini-3.1-flash-lite` n'existe **qu'en `global`**.
 
 ---
 
@@ -282,15 +303,18 @@ Separer les modeles evite de consommer des tokens pro pour une tache de planning
 | Fichier                        | Role                                                                                            |
 | ------------------------------ | ----------------------------------------------------------------------------------------------- |
 | `src/index.js`                 | Point d'entree. Connecte le bot, lance le mode selectionne (freeze / test / player / autonome). |
-| `src/config/settings.js`       | Toute la configuration (IP serveur, modeles Gemini, timeouts, mode CLI).                        |
+| `.env`                         | Toute la configuration (IP serveur, modeles Gemini, timeouts, mode CLI) via variables d'env.    |
+| `src/state/run.js`             | Identite du run: calcule le username `<base>_<iteration>` et persiste le compteur d'iteration.  |
 | `src/observer/index.js`        | Produit le snapshot textuel transmis au LLM a chaque cycle.                                     |
 | `src/brain/gemini.js`          | Client Vertex AI avec ADC. Supporte l'override de modele par appel.                             |
 | `src/brain/prompts.js`         | Tous les templates de prompts. Inclut les exemples d'API primitives pour le LLM.                |
-| `src/brain/actionAgent.js`     | Phase 1: selection skill/code. Phase 2: execution + self-correction (N retries).                |
+| `src/brain/actionAgent.js`     | Phase 1: selection skill/code (top-K). Phase 2: execution + self-correction (N retries).        |
+| `src/brain/criticAgent.js`     | Self-verification: compare l'etat avant/apres pour valider (ou rejeter) une tache.              |
 | `src/brain/freezeMode.js`      | Bot idle. Ecoute "unfreeze" dans le chat pour demarrer l'entrainement.                          |
 | `src/brain/playerMode.js`      | Mode interactif. Chaining multi-etapes avec reuse des skills appris.                            |
 | `src/curriculum/curriculum.js` | Propose le prochain advancement a poursuivre (arbre complet Java 1.20).                         |
 | `src/skills/library.js`        | CRUD fichier pour les skills appris (.js dans learned/).                                        |
+| `src/skills/retrieval.js`      | Classe les skills par pertinence et n'envoie que les top-K au prompt (cout tokens borne).       |
 | `src/skills/primitives/`       | 8 helpers codes manuellement, exposes dans le system prompt pour le LLM.                        |
 | `src/skills/learned/`          | Skills generes et sauvegardes. Toujours parametres.                                             |
 

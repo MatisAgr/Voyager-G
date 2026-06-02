@@ -5,7 +5,14 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "freeze": "node src/index.js --freeze",
+    "player": "node src/index.js --player",
+    "test": "node src/index.js --test",
+    "clear": "node src/index.js --clear",
+    "dev": "node --watch src/index.js",
+    "dashboard": "node tools/web.js",
+    "sessions": "node tools/clean-sessions.js",
+    "sessions:clean": "node tools/clean-sessions.js --delete"
   },
   "keywords": [
     "minecraft",
