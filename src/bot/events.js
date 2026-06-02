@@ -37,6 +37,11 @@ function registerEvents(bot) {
 
   bot.on("health", () => {
     logger.debug("Bot", `Health: ${bot.health} | Food: ${bot.food}`);
+    // Le bot est auto-ope via RCON au spawn
+    const health = Math.round(bot.health);
+    const food   = Math.round(bot.food);
+    bot.chat(`/scoreboard players set Health Stats ${health}`);
+    bot.chat(`/scoreboard players set Food Stats ${food}`);
   });
 
   // Stop pathfinder completely when the bot takes damage.

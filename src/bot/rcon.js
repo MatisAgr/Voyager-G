@@ -125,43 +125,4 @@ async function ensureOp(username) {
   }
 }
 
-/** Pousse sante/faim sur le scoreboard via RCON (remplace le bot.chat du bot). */
-async function pushScoreboard(bot) {
-  if (!isEnabled()) return;
-  const cfg = rconConfig();
-  if (!cfg.password) return;
-  const health = Math.max(0, Math.round(bot.health ?? 0));
-  const food   = Math.max(0, Math.round(bot.food ?? 0));
-  try {
-    await sendCommand(cfg, `scoreboard players set Health Stats ${health}`);
-    await sendCommand(cfg, `scoreboard players set Food Stats ${food}`);
-  } catch (_) { /* au mieux */ }
-}
-
-/** Re-applique les effets permanents (respawn, nouveau joueur). */
-async function reapplyEffects() {
-  if (!isEnabled() || process.env.RCON_APPLY_SETUP === "false") return;
-  const cfg = rconConfig();
-  if (!cfg.password) return;
-  try {
-    await sendCommand(cfg, "effect give @a minecraft:fire_resistance infinite 0 true");
-    await sendCommand(cfg, "effect give @a minecraft:night_vision infinite 0 true");
-  } catch (_) { /* au mieux */ }
-}
-
-/**
- * Maintenance RCON periodique : met a jour le scoreboard sante/faim et
- * re-applique les effets. Renvoie l'interval (a clear sur l'evenement "end").
- */
-function startRconMaintenance(bot) {
-  if (!isEnabled() || !rconConfig().password) return null;
-  const periodMs = parseInt(process.env.RCON_SCOREBOARD_MS, 10) || 3000;
-  let tick = 0;
-  return setInterval(() => {
-    pushScoreboard(bot);
-    if (tick % 5 === 0) reapplyEffects(); // ~ toutes les 5 iterations
-    tick++;
-  }, periodMs);
-}
-
-module.exports = { ensureOp, sendCommand, startRconMaintenance };
+module.exports = { ensureOp, sendCommand };
