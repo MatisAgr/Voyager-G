@@ -266,9 +266,19 @@ function startDashboard() {
       positions,
       mapBlocks,
       sessionStartTime,
+      // live=false en mode visualisation (sans bot) -> le client fige le chrono.
+      live: process.env.DASHBOARD_VIEWER_ONLY !== "true",
     });
   });
 
+  // Port deja pris : avertir au lieu de planter (un dashboard tourne deja).
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      logger.warn("Dashboard", `Port ${DASHBOARD_PORT} deja utilise : un dashboard tourne deja. Ouvre http://localhost:${DASHBOARD_PORT} (ne pas en lancer un 2e).`);
+    } else {
+      logger.error("Dashboard", `Erreur serveur dashboard : ${err.message}`);
+    }
+  });
   server.listen(DASHBOARD_PORT, () => {
     logger.info("Dashboard", `Dashboard running at http://localhost:${DASHBOARD_PORT}`);
   });
@@ -369,12 +379,13 @@ function saveSession() {
   }
 }
 
-// Autosave every 30 s
-setInterval(saveSession, AUTOSAVE_INTERVAL);
-// Save on clean shutdown
-process.on("exit", saveSession);
-process.on("SIGINT", () => { saveSession(); process.exit(0); });
-process.on("SIGTERM", () => { saveSession(); process.exit(0); });
+// En mode visualisation seule (sans bot), on ne sauvegarde aucune session.
+if (process.env.DASHBOARD_VIEWER_ONLY !== "true") {
+  setInterval(saveSession, AUTOSAVE_INTERVAL);
+  process.on("exit", saveSession);
+  process.on("SIGINT", () => { saveSession(); process.exit(0); });
+  process.on("SIGTERM", () => { saveSession(); process.exit(0); });
+}
 
 module.exports = {
   startDashboard,

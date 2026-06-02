@@ -208,8 +208,11 @@ function renderItemsBar() {
   }
 }
 
-//  Session timer 
+//  Session timer
 let sessionStartTime = Date.now();
+// Si non-null, le chrono est fige a (sessionEndTime - sessionStartTime).
+// null = session live en cours -> on incremente en temps reel.
+let sessionEndTime = null;
 
 function formatElapsed(ms) {
   if (!ms || ms < 0) return '00:00:00';
@@ -231,8 +234,12 @@ function formatTime(ts) {
        + d.getSeconds().toString().padStart(2, '0');
 }
 
+// Temps fige (save lue ou dashboard sans bot) ou temps reel (session live).
+function sessionElapsedMs() {
+  return (sessionEndTime !== null ? sessionEndTime : Date.now()) - sessionStartTime;
+}
 setInterval(() => {
-  document.getElementById('stat-time').textContent = formatElapsed(Date.now() - sessionStartTime);
+  document.getElementById('stat-time').textContent = formatElapsed(sessionElapsedMs());
 }, 1000);
 
 //  Skills table 
@@ -387,6 +394,9 @@ const socket = io();
 
 socket.on('history', (data) => {
   sessionStartTime  = data.sessionStartTime || Date.now();
+  // Bot actif -> chrono temps reel ; dashboard sans bot -> fige.
+  sessionEndTime    = data.live ? null : sessionStartTime;
+  viewerOnly        = !data.live;
   seriesData.length = 0;
   allSeenItems      = data.seenItems || [];
   allSkills         = data.skills    || [];
@@ -400,6 +410,9 @@ socket.on('history', (data) => {
   renderItemsBar();
   renderSkillsTable();
   renderMap();
+
+  // Sans bot, basculer sur la derniere save pour un affichage coherent.
+  maybeAutoSelectLatestSave();
 });
 
 socket.on('datapoint', (point) => {
@@ -423,8 +436,11 @@ socket.on('map_blocks', (blocks) => {
   }
 });
 
-//  Session selector 
+//  Session selector
 let isLiveMode = true;
+// Mode dashboard sans bot : on ouvre automatiquement sur la derniere save.
+let viewerOnly = false;
+let autoSelectedSave = false;
 
 /**
  * Resets all dashboard state to blank before loading new data.
@@ -454,6 +470,8 @@ function resetDashboardState() {
 function replaySessionData(data) {
   resetDashboardState();
   sessionStartTime  = data.sessionStartTime || Date.now();
+  // Save lue -> temps fige reel de la session (savedAt - debut).
+  sessionEndTime    = data.savedAt || sessionStartTime;
   allSeenItems      = data.seenItems || [];
   allSkills         = data.skills    || [];
 
@@ -473,6 +491,7 @@ function replaySessionData(data) {
  */
 async function loadSessionList() {
   const sel = document.getElementById('session-selector');
+  const previous = sel.value;  // conserver la selection courante
   try {
     const res   = await fetch('/api/sessions');
     const files = await res.json();
@@ -487,9 +506,22 @@ async function loadSessionList() {
       opt.textContent = name.replace('.json', '').replace('_', ' ').replace(/-/g, (m, i) => i > 9 ? ':' : '-');
       sel.appendChild(opt);
     }
+    // Restaurer la selection si l'option existe toujours (evite le retour a "Live").
+    if ([...sel.options].some(o => o.value === previous)) sel.value = previous;
   } catch (_) {
     // Silently ignore — dropdown stays with "Live" only
   }
+  maybeAutoSelectLatestSave();
+}
+
+// Sans bot (mode dashboard), selectionne la save la plus recente une seule fois.
+function maybeAutoSelectLatestSave() {
+  if (!viewerOnly || autoSelectedSave) return;
+  const sel = document.getElementById('session-selector');
+  if (sel.options.length < 2) return;       // liste pas prete / aucune save
+  autoSelectedSave = true;
+  sel.value = sel.options[1].value;          // [0]=Live, [1]=save la plus recente
+  sel.dispatchEvent(new Event('change'));    // declenche le chargement de la save
 }
 
 /**
