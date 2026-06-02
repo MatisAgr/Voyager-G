@@ -37,16 +37,6 @@ function registerEvents(bot) {
 
   bot.on("health", () => {
     logger.debug("Bot", `Health: ${bot.health} | Food: ${bot.food}`);
-
-    // Update the sidebar scoreboard with current health and food.
-    // Requires the "Stats" objective to exist on the server and the bot to be OP:
-    //   scoreboard objectives add Stats dummy "Bot Stats"
-    //   scoreboard objectives setdisplay sidebar Stats
-    //   op Voyager-G
-    const health = Math.round(bot.health);
-    const food   = Math.round(bot.food);
-    bot.chat(`/scoreboard players set Health Stats ${health}`);
-    bot.chat(`/scoreboard players set Food Stats ${food}`);
   });
 
   // Stop pathfinder completely when the bot takes damage.

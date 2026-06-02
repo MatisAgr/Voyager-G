@@ -12,7 +12,7 @@ const minecraftData = require("minecraft-data");
 const { Movements } = require("mineflayer-pathfinder");
 const { createBot } = require("./bot/createBot");
 const { registerEvents } = require("./bot/events");
-const { ensureOp } = require("./bot/rcon");
+const { ensureOp, startRconMaintenance } = require("./bot/rcon");
 const { observe } = require("./observer");
 const { inventoryCounts } = require("./observer/inventory");
 const { executeTask } = require("./brain/actionAgent");
@@ -301,6 +301,10 @@ function startAgent() {
     if (pos) addPosition(pos.x, pos.y, pos.z, bot);
   }, 5000);
   bot.on("end", () => clearInterval(posInterval));
+
+  // Maintenance RCON : scoreboard sante/faim + effets permanents (a la place du bot).
+  const rconMaint = startRconMaintenance(bot);
+  if (rconMaint) bot.on("end", () => clearInterval(rconMaint));
 
   // Select run mode.
 const mode = process.argv.includes("--freeze") ? "freeze"

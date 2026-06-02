@@ -37,8 +37,12 @@ Toutes les commandes ont un raccourci `npm run ...` (pas besoin de retenir les o
 
 Comme le nom change a chaque itération, le bot est **op automatiquement au spawn via RCON**
 (un datapack ne peut pas appeler `/op`, mais la console RCON le peut). Cela couvre n'importe quel
-nom dynamique, sans aucune action manuelle. L'app applique aussi la config recommandee
-(keepInventory, doDaylightCycle false, difficulty easy, night vision).
+nom dynamique, sans aucune action manuelle. **Tout le setup serveur passe par RCON** (pas par le
+bot lui-meme) :
+- `difficulty` = `MC_DIFFICULTY` (defaut **peaceful** : pas de mobs hostiles -> evite les kicks de knockback) ;
+- `gamerule keepInventory true`, `doDaylightCycle false`, **`fallDamage false`** ;
+- **fire resistance + night vision infinies** a tout le monde (`@a`) ;
+- **scoreboard sante/faim** alimente en continu par RCON (l'app, pas le bot, toutes les `RCON_SCOREBOARD_MS` ms).
 
 Pre-requis **une seule fois** dans `game/server.properties` (puis redemarrer le serveur) :
 
@@ -52,19 +56,24 @@ Pour desactiver l'auto-op : `RCON_ENABLED=false` dans `.env`.
 
 ### Fallback : commandes manuelles
 
-Si RCON est desactive, opez le bot manuellement (nom visible dans les logs) et appliquez la config :
+Si RCON est desactive (`RCON_ENABLED=false`), opez le bot manuellement (nom visible dans les logs)
+et appliquez la config a la main :
 
 ```
 /op Voyager-G_<n>
-/effect give @a night_vision 99999 1
+/difficulty peaceful
 /gamerule keepInventory true
 /gamerule doDaylightCycle false
-/difficulty easy
+/gamerule fallDamage false
+/effect give @a minecraft:fire_resistance infinite 0 true
+/effect give @a minecraft:night_vision infinite 0 true
+/scoreboard objectives add Stats dummy "Bot Stats"
+/scoreboard objectives setdisplay sidebar Stats
 ```
 
 > [!NOTE]
-> Sans OP (auto via RCON ou manuel), le bot ne peut pas executer ses commandes `/scoreboard` et la
-> barre laterale Health/Food n'apparaitra pas.
+> Sans RCON, la barre laterale Health/Food ne sera plus mise a jour automatiquement
+> (c'est l'app via RCON qui l'alimente desormais, plus le bot).
 
 ---
 

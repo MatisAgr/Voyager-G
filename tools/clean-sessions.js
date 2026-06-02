@@ -34,7 +34,7 @@ if (flag("help") || flag("h")) {
 }
 
 const DELETE     = flag("delete") || flag("d");
-const MIN_ITEMS  = value("min-items", 5);
+const MIN_ITEMS  = value("min-items", 10);
 const GRACE_MIN  = value("grace", 2);   // minutes
 
 // ---- Helpers ----------------------------------------------------------------

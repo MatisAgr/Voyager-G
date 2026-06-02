@@ -105,17 +105,63 @@ async function ensureOp(username) {
 
   // Applique la config confort une fois (idempotent).
   if (process.env.RCON_APPLY_SETUP !== "false") {
+    const difficulty = process.env.MC_DIFFICULTY || "peaceful";
     const setup = [
       "gamerule keepInventory true",
       "gamerule doDaylightCycle false",
-      "difficulty easy",
-      "effect give @a minecraft:night_vision 99999 1 true",
+      "gamerule fallDamage false",
+      `difficulty ${difficulty}`,
+      // Sidebar sante/faim, alimentee par RCON.
+      'scoreboard objectives add Stats dummy "Bot Stats"',
+      "scoreboard objectives setdisplay sidebar Stats",
+      // Effets permanents pour tout le monde.
+      "effect give @a minecraft:fire_resistance infinite 0 true",
+      "effect give @a minecraft:night_vision infinite 0 true",
     ];
     for (const cmd of setup) {
       try { await sendCommand(cfg, cmd); } catch (_) { /* au mieux */ }
     }
-    logger.info("Rcon", "Applied recommended server setup (gamerules, difficulty, night vision).");
+    logger.info("Rcon", `Applied server setup (difficulty ${difficulty}, no fall damage, fire res + night vision, scoreboard).`);
   }
 }
 
-module.exports = { ensureOp, sendCommand };
+/** Pousse sante/faim sur le scoreboard via RCON (remplace le bot.chat du bot). */
+async function pushScoreboard(bot) {
+  if (!isEnabled()) return;
+  const cfg = rconConfig();
+  if (!cfg.password) return;
+  const health = Math.max(0, Math.round(bot.health ?? 0));
+  const food   = Math.max(0, Math.round(bot.food ?? 0));
+  try {
+    await sendCommand(cfg, `scoreboard players set Health Stats ${health}`);
+    await sendCommand(cfg, `scoreboard players set Food Stats ${food}`);
+  } catch (_) { /* au mieux */ }
+}
+
+/** Re-applique les effets permanents (respawn, nouveau joueur). */
+async function reapplyEffects() {
+  if (!isEnabled() || process.env.RCON_APPLY_SETUP === "false") return;
+  const cfg = rconConfig();
+  if (!cfg.password) return;
+  try {
+    await sendCommand(cfg, "effect give @a minecraft:fire_resistance infinite 0 true");
+    await sendCommand(cfg, "effect give @a minecraft:night_vision infinite 0 true");
+  } catch (_) { /* au mieux */ }
+}
+
+/**
+ * Maintenance RCON periodique : met a jour le scoreboard sante/faim et
+ * re-applique les effets. Renvoie l'interval (a clear sur l'evenement "end").
+ */
+function startRconMaintenance(bot) {
+  if (!isEnabled() || !rconConfig().password) return null;
+  const periodMs = parseInt(process.env.RCON_SCOREBOARD_MS, 10) || 3000;
+  let tick = 0;
+  return setInterval(() => {
+    pushScoreboard(bot);
+    if (tick % 5 === 0) reapplyEffects(); // ~ toutes les 5 iterations
+    tick++;
+  }, periodMs);
+}
+
+module.exports = { ensureOp, sendCommand, startRconMaintenance };
