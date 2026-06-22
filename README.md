@@ -25,6 +25,33 @@ Toutes les commandes ont un raccourci `npm run ...` (pas besoin de retenir les o
 | `npm run sessions`    | `node tools/clean-sessions` | Liste les sessions et celles qui seraient supprimees (aucune suppression).|
 | `npm run sessions:clean` | `... --delete`           | Supprime les sessions avec moins de 5 items distincts.                   |
 
+### Parametre `--stop-at N` (budget de generation de code)
+
+Arrete le bot proprement apres **N generations de code** (appels Gemini avec `role: "codegen"`).
+Utile pour laisser le bot tourner en arriere-plan sans exploser l'API.
+
+```bash
+node src/index.js --stop-at 100
+```
+
+Quand la limite est atteinte, le bot :
+1. Envoie dans le chat Minecraft : `[VoyagerG] Limite de 100 gen. de code atteinte (run: Voyager-G.iteration.json) | <inventaire>`
+2. Se deconnecte du serveur.
+3. Coupe le processus Node (`process.exit`), sans reconnexion automatique.
+
+> [!NOTE]
+> `--stop-at` ne reinitialise **pas** la session. La prochaine fois que le bot demarre
+> (sans `--clear`), il reprend la meme iteration avec le meme username.
+
+**Combinaisons possibles :** tous les flags sont independants et cumulables.
+
+| Commande                                          | Comportement                                              |
+| ------------------------------------------------- | --------------------------------------------------------- |
+| `node src/index.js --stop-at 100`                 | Mode autonome, arret apres 100 gen. (meme session)        |
+| `node src/index.js --stop-at 50 --clear`          | Nouvelle session, arret apres 50 gen.                     |
+| `node src/index.js --stop-at 50 --freeze`         | Demarre en freeze, arret apres 50 gen. quand unfreeze     |
+| `node src/index.js --stop-at 50 --player`         | Mode player, arret apres 50 gen.                          |
+
 ---
 
 ## Configuration recommandee du serveur

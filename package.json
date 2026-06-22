@@ -13,7 +13,8 @@
     "dev": "node --watch src/index.js",
     "dashboard": "node tools/web.js",
     "sessions": "node tools/clean-sessions.js",
-    "sessions:clean": "node tools/clean-sessions.js --delete"
+    "sessions:clean": "node tools/clean-sessions.js --delete",
+    "stop-at": "node src/index.js --stop-at"
   },
   "keywords": [
     "minecraft",

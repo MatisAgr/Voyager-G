@@ -14,7 +14,7 @@ const { createBot } = require("./bot/createBot");
 const { registerEvents } = require("./bot/events");
 const { ensureOp } = require("./bot/rcon");
 const { observe } = require("./observer");
-const { inventoryCounts } = require("./observer/inventory");
+const { inventoryCounts, getInventorySummary } = require("./observer/inventory");
 const { executeTask } = require("./brain/actionAgent");
 const { getUsedLearnedTaskCount } = require("./brain/actionAgent");
 const { verifyCritic } = require("./brain/criticAgent");
@@ -40,6 +40,15 @@ process.on("uncaughtException", (err) => {
 
 const CLEAR_MODE  = process.argv.includes("--clear");
 const LIBRARY_DIR = path.resolve(process.env.SKILLS_LIBRARY_DIR || "src/skills/learned");
+
+// --stop-at N: stop the agent after N code generation prompts.
+const STOP_AT_IDX = process.argv.indexOf("--stop-at");
+const STOP_AT = STOP_AT_IDX !== -1 ? parseInt(process.argv[STOP_AT_IDX + 1], 10) : null;
+if (STOP_AT !== null && (!Number.isFinite(STOP_AT) || STOP_AT <= 0)) {
+  logger.error("Main", "--stop-at requires a positive integer (e.g. --stop-at 100)");
+  process.exit(1);
+}
+if (STOP_AT !== null) logger.info("Main", `--stop-at: will stop after ${STOP_AT} code generation prompt(s).`);
 
 // --clear: wipe the skill library so the agent starts with no prior knowledge.
 if (CLEAR_MODE) {
@@ -69,6 +78,8 @@ const CRITIC_SETTLE_MS = parseInt(process.env.CRITIC_SETTLE_MS, 10) || 1000;
 let lastCritique = "";
 // Used to stop old loops after reconnect.
 let currentGeneration = 0;
+// Set to true when --stop-at limit is reached to prevent auto-reconnect.
+let stopAtLimitReached = false;
 
 /**
  * Main autonomous loop.
@@ -165,6 +176,22 @@ async function mainLoop(bot, mcData, generation) {
         usedLearned: getUsedLearnedTaskCount(),
       }, bot);
 
+      // --stop-at: halt when the code generation budget is exhausted.
+      if (STOP_AT !== null && getCodeGenPromptCount() >= STOP_AT) {
+        const invItems = bot.inventory.items();
+        const invLine = invItems.length === 0
+          ? "inventaire vide"
+          : invItems.map(i => `${i.name} x${i.count}`).join(", ");
+        const runJson = `${RUN.baseName}.iteration.json`;
+        const msg = `[VoyagerG] Limite de ${STOP_AT} gen. de code atteinte (run: ${runJson}) | ${invLine}`;
+        logger.info("Main", `Stop-at limit reached. ${msg}`);
+        try { await bot.chat(msg); } catch (_) {}
+        await sleep(1000);
+        stopAtLimitReached = true;
+        bot.quit("stop-at limit reached");
+        return;
+      }
+
       // Small breathing room between cycles
       await sleep(3000);
     } catch (err) {
@@ -198,8 +225,12 @@ function startAgent() {
   const inventoryViewerPort = parseInt(process.env.INVENTORY_VIEWER_PORT, 10) || 3000;
   inventoryViewer(bot, { port: inventoryViewerPort });
 
-  // Auto reconnect after disconnect.
+  // Auto reconnect after disconnect (unless --stop-at limit was reached).
   bot.on("end", () => {
+    if (stopAtLimitReached) {
+      logger.info("Main", "Stop-at limit reached - shutting down.");
+      process.exit(0);
+    }
     logger.warn("Main", "Bot disconnected - reconnecting in 10 s...");
     setTimeout(startAgent, 10000);
   });
