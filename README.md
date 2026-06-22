@@ -31,7 +31,8 @@ Arrete le bot proprement apres **N generations de code** (appels Gemini avec `ro
 Utile pour laisser le bot tourner en arriere-plan sans exploser l'API.
 
 ```bash
-node src/index.js --stop-at 100
+npm run stop-at -- 100
+# ou directement : node src/index.js --stop-at 100
 ```
 
 Quand la limite est atteinte, le bot :
@@ -45,12 +46,12 @@ Quand la limite est atteinte, le bot :
 
 **Combinaisons possibles :** tous les flags sont independants et cumulables.
 
-| Commande                                          | Comportement                                              |
-| ------------------------------------------------- | --------------------------------------------------------- |
-| `node src/index.js --stop-at 100`                 | Mode autonome, arret apres 100 gen. (meme session)        |
-| `node src/index.js --stop-at 50 --clear`          | Nouvelle session, arret apres 50 gen.                     |
-| `node src/index.js --stop-at 50 --freeze`         | Demarre en freeze, arret apres 50 gen. quand unfreeze     |
-| `node src/index.js --stop-at 50 --player`         | Mode player, arret apres 50 gen.                          |
+| Commande                                    | Comportement                                              |
+| ------------------------------------------- | --------------------------------------------------------- |
+| `npm run stop-at -- 100`                    | Mode autonome, arret apres 100 gen. (meme session)        |
+| `npm run stop-at -- 50 --clear`             | Nouvelle session, arret apres 50 gen.                     |
+| `npm run stop-at -- 50 --freeze`            | Demarre en freeze, arret apres 50 gen. quand unfreeze     |
+| `npm run stop-at -- 50 --player`            | Mode player, arret apres 50 gen.                          |
 
 ---
 
