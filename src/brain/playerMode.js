@@ -90,7 +90,7 @@ async function handlePlayerMessage(bot, mcData, playerName, message) {
       const gameState = observe(bot);
 
       // Ne charger que les skills pertinents (prompt plus court).
-      const skillNames = retrieveRelevantSkills(originalRequest, listSkills());
+      const skillNames = await retrieveRelevantSkills(originalRequest, listSkills());
 
       // Build the prompt. On follow-up steps, prepend "Continue the task"
       // so Gemini knows this is a continuation, not a new request.

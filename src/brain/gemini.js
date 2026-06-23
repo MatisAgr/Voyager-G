@@ -11,6 +11,7 @@ const GCP_LOCATION       = process.env.GCP_LOCATION       || "global";
 const GCP_MODEL          = process.env.GCP_MODEL          || "gemini-3.1-flash-lite";
 const GCP_TEMPERATURE    = parseFloat(process.env.GCP_TEMPERATURE)    || 0.7;
 const GCP_MAX_OUTPUT_TOKENS = parseInt(process.env.GCP_MAX_OUTPUT_TOKENS, 10) || 4096;
+const GCP_EMBED_MODEL    = process.env.GCP_EMBED_MODEL    || "gemini-embedding-001";
 
 // Lazy singleton client.
 let client = null;
@@ -75,8 +76,29 @@ async function chat(prompt, options = {}) {
   }
 }
 
+async function _embed(text, taskType) {
+  const ai = getClient();
+  const response = await ai.models.embedContent({
+    model: GCP_EMBED_MODEL,
+    contents: text,
+    config: { taskType },
+  });
+  const vec = response?.embeddings?.[0]?.values;
+  if (!Array.isArray(vec) || vec.length === 0) {
+    throw new Error(`Empty embedding for: "${text.slice(0, 60)}"`);
+  }
+  return vec;
+}
+
+/** Embeds a task description (query side of asymmetric retrieval). */
+const embedQuery    = (text) => _embed(text, "RETRIEVAL_QUERY");
+/** Embeds a skill name (document side of asymmetric retrieval). */
+const embedDocument = (text) => _embed(text, "RETRIEVAL_DOCUMENT");
+
 module.exports = {
   chat,
+  embedQuery,
+  embedDocument,
   getAgentPromptCount:      () => agentPromptCount,
   getCurriculumPromptCount: () => curriculumPromptCount,
   getCodeGenPromptCount:    () => codeGenPromptCount,

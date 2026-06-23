@@ -3,10 +3,11 @@
  * Selects a skill or generates code, executes it, and retries on failure.
  */
 
-const { chat } = require("./gemini");
+const { chat, embedDocument } = require("./gemini");
 const { skillSelectPrompt, actionPrompt, correctionPrompt } = require("./prompts");
 const { loadSkill, saveSkill } = require("../skills/library");
 const { retrieveRelevantSkills } = require("../skills/retrieval");
+const { indexSkillEmbedding } = require("../skills/embeddings");
 const { goals: pathfinderGoals } = require("mineflayer-pathfinder");
 const logger = require("../utils/logger");
 const { sleep } = require("../utils/helpers");
@@ -96,7 +97,7 @@ async function executeTask(bot, mcData, gameState, task, availableSkills = []) {
   //  Phase 1: Ask Gemini which skill to use, or get new code
   logger.info("ActionAgent", `Phase 1 - selecting skill for task: "${task}"`);
   // Ne montrer que les skills les plus pertinents pour garder le prompt court.
-  const relevantSkills = retrieveRelevantSkills(task, availableSkills);
+  const relevantSkills = await retrieveRelevantSkills(task, availableSkills);
   const selectionPrompt = skillSelectPrompt(gameState, task, relevantSkills);
   let selectionRaw;
   try {
@@ -193,6 +194,8 @@ async function executeTask(bot, mcData, gameState, task, availableSkills = []) {
       if (taskName) {
         saveSkill(taskName, code, result);
         logger.info("ActionAgent", `New skill saved: "${taskName}"`);
+        // Index embedding in background so next retrieval is semantic.
+        indexSkillEmbedding(taskName, embedDocument).catch(() => {});
         saved = true;
       }
 

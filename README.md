@@ -170,7 +170,7 @@ Nearby entities (radius 32):
 | Position XYZ                          | `observer/environment.js` | Oui                                                       |
 | Top 20 blocs proches (rayon 16 blocs) | `observer/environment.js` | Oui                                                       |
 | Biome et heure du jour                | `observer/environment.js` | Oui                                                       |
-| Entites visibles (rayon 32 blocs)     | `observer/entities.js`    | Oui                                                       |
+| Entites visibles (rayon 64 blocs)     | `observer/entities.js`    | Oui (configurable via `ENTITY_SCAN_RADIUS`)               |
 | Sante / faim / niveau XP              | `observer/index.js`       | Oui                                                       |
 | Noms des skills deja appris           | `listSkills()`            | Oui                                                       |
 | Advancements Minecraft natifs         | aucune source             | **Non** (la progression est portee par l'etat du serveur : un nom de joueur neuf par run) |
@@ -299,7 +299,8 @@ Voyager-G/
     │
     ├── skills/
     │   ├── library.js            # CRUD fichier: saveSkill / loadSkill / listSkills
-    │   ├── retrieval.js          # Selection top-K des skills pertinents (reduction des couts tokens)
+    │   ├── embeddings.js         # Cache vectoriel + retrieval semantique (state/skill-embeddings.json)
+    │   ├── retrieval.js          # Selection top-K des skills par similarite cosinus (fallback: lexical)
     │   ├── primitives/           # Helpers codes manuellement, importables par le code LLM
     │   │   ├── mining.js         # mineBlock(bot, mcData, blockName)
     │   │   ├── crafting.js       # craftItem(bot, mcData, itemName, count)
@@ -325,19 +326,19 @@ Voyager-G/
 
 ## Configuration des Modeles
 
-Deux modeles LLM independants configurables dans `.env` :
+Trois modeles configurables independamment dans `.env` :
 
-| Variable               | Usage                                        | Recommandation           |
-| ---------------------- | -------------------------------------------- | ------------------------ |
-| `GCP_MODEL`            | Generation de code (action agent, phase 1+2) | `gemini-3.1-flash-lite` |
-| `GCP_MODEL_CURRICULUM` | Choix du prochain objectif (texte simple)    | `gemini-3.1-flash-lite`  |
+| Variable               | Usage                                               | Recommandation          |
+| ---------------------- | --------------------------------------------------- | ----------------------- |
+| `GCP_MODEL`            | Generation de code (action agent, phase 1+2)        | `gemini-3.5-flash`      |
+| `GCP_MODEL_CURRICULUM` | Choix du prochain objectif (texte simple)           | `gemini-3.1-flash-lite` |
+| `GCP_EMBED_MODEL`      | Embeddings pour la recuperation semantique des skills | `gemini-embedding-001` |
 
-Separer les modeles evite de consommer des tokens pro pour une tache de planning qui ne necessite pas de generation de code.
+Separer les modeles evite de consommer des tokens pro pour des taches qui n'en ont pas besoin.
 
 > [!NOTE]
-> Modeles disponibles sur le projet `memoire-agent-minecraft` (verifie en live) :
-> `gemini-2.5-flash-lite` / `gemini-2.5-flash` / `gemini-2.5-pro` fonctionnent dans **toutes les locations**
-> (europe-west9, us-central1, global). `gemini-3.1-flash-lite` n'existe **qu'en `global`**.
+> `gemini-3.1-flash-lite` n'est disponible **qu'en region `global`**. Verifier la disponibilite
+> des modeles selon la region GCP configuree (`GCP_LOCATION`) dans le `.env`.
 
 ---
 
@@ -349,7 +350,7 @@ Separer les modeles evite de consommer des tokens pro pour une tache de planning
 | `.env`                         | Toute la configuration (IP serveur, modeles Gemini, timeouts, mode CLI) via variables d'env.    |
 | `src/state/run.js`             | Identite du run: calcule le username `<base>_<iteration>` et persiste le compteur d'iteration.  |
 | `src/observer/index.js`        | Produit le snapshot textuel transmis au LLM a chaque cycle.                                     |
-| `src/brain/gemini.js`          | Client Vertex AI avec ADC. Supporte l'override de modele par appel.                             |
+| `src/brain/gemini.js`          | Client Vertex AI avec ADC. `chat()` pour la generation, `embedQuery/embedDocument()` pour les embeddings. |
 | `src/brain/prompts.js`         | Tous les templates de prompts. Inclut les exemples d'API primitives pour le LLM.                |
 | `src/brain/actionAgent.js`     | Phase 1: selection skill/code (top-K). Phase 2: execution + self-correction (N retries).        |
 | `src/brain/criticAgent.js`     | Self-verification: juge via delta d'inventaire calcule en code + delai settle (ne bloque pas la sauvegarde). |
@@ -357,7 +358,8 @@ Separer les modeles evite de consommer des tokens pro pour une tache de planning
 | `src/brain/playerMode.js`      | Mode interactif. Chaining multi-etapes avec reuse des skills appris.                            |
 | `src/curriculum/curriculum.js` | Propose le prochain advancement a poursuivre (arbre complet Java 1.20).                         |
 | `src/skills/library.js`        | CRUD fichier pour les skills appris (.js dans learned/).                                        |
-| `src/skills/retrieval.js`      | Classe les skills par pertinence et n'envoie que les top-K au prompt (cout tokens borne).       |
+| `src/skills/embeddings.js`     | Cache vectoriel des skills (`state/skill-embeddings.json`). Retrieval cosinus asymetrique.      |
+| `src/skills/retrieval.js`      | Retourne les top-K skills par similarite cosinus (embedding) avec fallback lexical.             |
 | `src/skills/primitives/`       | 8 helpers codes manuellement, exposes dans le system prompt pour le LLM.                        |
 | `src/skills/learned/`          | Skills generes et sauvegardes. Toujours parametres.                                             |
 
