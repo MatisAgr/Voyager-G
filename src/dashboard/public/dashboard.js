@@ -392,6 +392,17 @@ setInterval(renderMap, 1000);
 //  Socket.IO event handlers 
 const socket = io();
 
+/** Updates the three model chips in the header. */
+function updateModelsDisplay(models) {
+  if (!models) return;
+  const code = document.getElementById('stat-model-code');
+  const curr = document.getElementById('stat-model-curriculum');
+  const emb  = document.getElementById('stat-model-embed');
+  if (code) code.textContent = models.code       || '—';
+  if (curr) curr.textContent = models.curriculum || '—';
+  if (emb)  emb.textContent  = models.embedding  || '—';
+}
+
 socket.on('history', (data) => {
   sessionStartTime  = data.sessionStartTime || Date.now();
   // Bot actif -> chrono temps reel ; dashboard sans bot -> fige.
@@ -407,6 +418,7 @@ socket.on('history', (data) => {
   // Restore terrain block data from server history
   terrainBlocks = data.mapBlocks || {};
 
+  updateModelsDisplay(data.models);
   renderItemsBar();
   renderSkillsTable();
   renderMap();
@@ -480,6 +492,7 @@ function replaySessionData(data) {
 
   terrainBlocks = data.mapBlocks || {};
 
+  updateModelsDisplay(data.models);
   renderItemsBar();
   renderSkillsTable();
   renderMap();
@@ -502,8 +515,11 @@ async function loadSessionList() {
     for (const name of files) {
       const opt   = document.createElement('option');
       opt.value   = name;
-      // Display a friendlier label: "2025-01-15 14:30:00"
-      opt.textContent = name.replace('.json', '').replace('_', ' ').replace(/-/g, (m, i) => i > 9 ? ':' : '-');
+      const parts   = name.replace('.json', '').split('_');
+      const dateStr = parts[0] || '';
+      const timeStr = (parts[1] || '').replace(/-/g, ':');
+      const modelStr = parts.slice(2).join('_');
+      opt.textContent = `${dateStr} ${timeStr}${modelStr ? ' · ' + modelStr : ''}`;
       sel.appendChild(opt);
     }
     // Restaurer la selection si l'option existe toujours (evite le retour a "Live").

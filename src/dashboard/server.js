@@ -13,6 +13,11 @@ const logger     = require("../utils/logger");
 
 const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT, 10) || 3001;
 
+// Model identifiers stored in every session file and shown in the dashboard.
+const SESSION_MODEL_CODE       = process.env.GCP_MODEL            || "gemini-3.1-flash-lite";
+const SESSION_MODEL_CURRICULUM = process.env.GCP_MODEL_CURRICULUM || "gemini-3.1-flash-lite";
+const SESSION_MODEL_EMBED      = process.env.GCP_EMBED_MODEL      || "gemini-embedding-001";
+
 // Base URL for Minecraft 1.20.1 item/block renders (nerothe.com)
 const ICON_BASE = "https://mc.nerothe.com/img/1.20.1/";
 
@@ -34,9 +39,11 @@ const SKILLS_LIBRARY_DIR = path.resolve(
 const SESSIONS_DIR = path.join(__dirname, "..", "..", "sessions");
 if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 
-// Generate a human-readable session filename: YYYY-MM-DD_HH-MM-SS.json
+// Generate session filename: YYYY-MM-DD_HH-MM-SS_<model>.json
+const _modelSlug = SESSION_MODEL_CODE.replace(/[^a-z0-9\-\.]/gi, "-");
 const sessionFileName = new Date().toISOString()
-  .replace(/T/, "_").replace(/:/g, "-").replace(/\.\d+Z$/, "") + ".json";
+  .replace(/T/, "_").replace(/:/g, "-").replace(/\.\d+Z$/, "")
+  + `_${_modelSlug}.json`;
 const sessionFilePath = path.join(SESSIONS_DIR, sessionFileName);
 
 // Autosave interval (every 30 s)
@@ -266,6 +273,11 @@ function startDashboard() {
       positions,
       mapBlocks,
       sessionStartTime,
+      models: {
+        code:       SESSION_MODEL_CODE,
+        curriculum: SESSION_MODEL_CURRICULUM,
+        embedding:  SESSION_MODEL_EMBED,
+      },
       // live=false en mode visualisation (sans bot) -> le client fige le chrono.
       live: process.env.DASHBOARD_VIEWER_ONLY !== "true",
     });
@@ -365,6 +377,11 @@ function saveSession() {
   const data = {
     sessionStartTime,
     savedAt: Date.now(),
+    models: {
+      code:       SESSION_MODEL_CODE,
+      curriculum: SESSION_MODEL_CURRICULUM,
+      embedding:  SESSION_MODEL_EMBED,
+    },
     dataPoints,
     seenItems:  Array.from(seenItems),
     skills,
