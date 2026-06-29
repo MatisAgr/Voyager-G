@@ -5,6 +5,9 @@
 
 const { goals } = require("mineflayer-pathfinder");
 
+const BLOCK_SCAN_RADIUS = parseInt(process.env.BLOCK_SCAN_RADIUS, 10) || 64;
+const ENTITY_SCAN_RADIUS = parseInt(process.env.ENTITY_SCAN_RADIUS, 10) || 64;
+
 /** Explores randomly until conditionFn is true. */
 async function exploreUntil(bot, mcData, conditionFn, options = {}) {
   const {
@@ -55,7 +58,7 @@ async function exploreUntil(bot, mcData, conditionFn, options = {}) {
  * Convenience wrapper: explores until a block of the given type is visible.
  *
  */
-async function exploreUntilBlock(bot, mcData, blockName, maxDistance = 64, exploreOptions = {}) {
+async function exploreUntilBlock(bot, mcData, blockName, maxDistance = BLOCK_SCAN_RADIUS, exploreOptions = {}) {
   const blockData = mcData.blocksByName[blockName];
   if (!blockData) throw new Error(`Unknown block: "${blockName}"`);
 
@@ -78,7 +81,7 @@ async function exploreUntilEntity(bot, mcData, entityName, exploreOptions = {}) 
     bot,
     mcData,
     (b) => Object.values(b.entities).find(
-      (e) => e.name === entityName && e.position.distanceTo(b.entity.position) < 64
+      (e) => e.name === entityName && e.position.distanceTo(b.entity.position) < ENTITY_SCAN_RADIUS
     ),
     { targetLabel: entityName, ...exploreOptions }
   );

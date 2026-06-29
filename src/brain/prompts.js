@@ -5,6 +5,7 @@
 
 // Limite le nombre d'items d'historique injectes dans un prompt (cout tokens borne).
 const CURRICULUM_HISTORY_LIMIT = parseInt(process.env.CURRICULUM_HISTORY_LIMIT, 10) || 20;
+const BLOCK_SCAN_RADIUS = parseInt(process.env.BLOCK_SCAN_RADIUS, 10) || 64;
 
 /** Liste en puces, ne garde que les `limit` plus recents. */
 function capRecent(list, limit = CURRICULUM_HISTORY_LIMIT) {
@@ -150,7 +151,7 @@ CRITICAL MINING PATTERN - ALWAYS USE THIS:
     let safety = 0;
     while (digCount < TARGET) {
       if (++safety > TARGET * 5) throw new Error("Safety cap reached, aborting.");
-      const block = bot.findBlock({ matching: mcData.blocksByName[BLOCK_NAME].id, maxDistance: 64 });
+      const block = bot.findBlock({ matching: mcData.blocksByName[BLOCK_NAME].id, maxDistance: BLOCK_SCAN_RADIUS });
       if (!block) throw new Error(\`No \${BLOCK_NAME} found nearby.\`);
       // radius=1 guarantees the bot is within Minecraft's item pickup range (~1.5 blocks)
       await bot.pathfinder.goto(new pathfinderGoals.GoalNear(block.position.x, block.position.y, block.position.z, 1));

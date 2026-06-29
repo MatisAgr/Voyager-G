@@ -8,6 +8,8 @@
 
 const { goals } = require("mineflayer-pathfinder");
 
+const BLOCK_SCAN_RADIUS = parseInt(process.env.BLOCK_SCAN_RADIUS, 10) || 32;
+
 /**
  * Mines the nearest block of the given type.
  *
@@ -20,11 +22,11 @@ async function mineBlock(bot, mcData, blockName) {
 
   const block = bot.findBlock({
     matching: blockType.id,
-    maxDistance: 64,
+    maxDistance: BLOCK_SCAN_RADIUS,
   });
 
   if (!block) {
-    throw new Error(`No "${blockName}" found within 64 blocks`);
+    throw new Error(`No "${blockName}" found within ${BLOCK_SCAN_RADIUS} blocks`);
   }
 
   // Navigate close enough to mine

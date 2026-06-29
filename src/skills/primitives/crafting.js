@@ -5,6 +5,8 @@
  * re-derive the Mineflayer crafting API every time.
  */
 
+const BLOCK_SCAN_RADIUS = parseInt(process.env.BLOCK_SCAN_RADIUS, 10) || 32;
+
 /**
  * Crafts a given item if possible. Automatically walks to the
  * nearest crafting table when a table is required.
@@ -23,7 +25,7 @@ async function craftItem(bot, mcData, itemName, count = 1) {
     // Maybe a crafting table is needed
     const craftingTable = bot.findBlock({
       matching: mcData.blocksByName.crafting_table.id,
-      maxDistance: 32,
+      maxDistance: BLOCK_SCAN_RADIUS,
     });
 
     if (craftingTable) {

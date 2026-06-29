@@ -5,6 +5,8 @@
 
 const { goals } = require("mineflayer-pathfinder");
 
+const BLOCK_SCAN_RADIUS = parseInt(process.env.BLOCK_SCAN_RADIUS, 10) || 32;
+
 // Fuel priority.
 const FUEL_PRIORITY = [
   "coal",
@@ -42,7 +44,7 @@ async function smeltItem(bot, mcData, inputItem, count = 1) {
   // Locate furnace block
   let furnaceBlock = bot.findBlock({
     matching: mcData.blocksByName.furnace.id,
-    maxDistance: 32,
+    maxDistance: BLOCK_SCAN_RADIUS,
   });
 
   // If none nearby, place one from inventory
@@ -61,7 +63,7 @@ async function smeltItem(bot, mcData, inputItem, count = 1) {
 
     furnaceBlock = bot.findBlock({
       matching: mcData.blocksByName.furnace.id,
-      maxDistance: 8,
+      maxDistance: BLOCK_SCAN_RADIUS,
     });
     if (!furnaceBlock) throw new Error("Furnace placement failed.");
   }
